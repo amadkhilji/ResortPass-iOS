@@ -7,18 +7,32 @@ import Foundation
 import Combine
 import CoreLocation
 
+protocol CLLocationManagerProtocol: AnyObject {
+    var delegate: CLLocationManagerDelegate? { get set }
+    var desiredAccuracy: CLLocationAccuracy { get set }
+    var authorizationStatus: CLAuthorizationStatus { get }
+    func requestWhenInUseAuthorization()
+    func startUpdatingLocation()
+    func stopUpdatingLocation()
+}
+
+extension CLLocationManager: CLLocationManagerProtocol {}
+
 @MainActor
 final class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
+    static let shared = LocationManager()
+    
     @Published var userLocation: CLLocationCoordinate2D?
     @Published var authorizationStatus: CLAuthorizationStatus = .notDetermined
     
-    private let locationManager = CLLocationManager()
+    private let locationManager: any CLLocationManagerProtocol
     
-    override init() {
+    init(locationManager: any CLLocationManagerProtocol = CLLocationManager()) {
+        self.locationManager = locationManager
         super.init()
-        locationManager.delegate = self
-        locationManager.desiredAccuracy = kCLLocationAccuracyHundredMeters
-        authorizationStatus = locationManager.authorizationStatus
+        self.locationManager.delegate = self
+        self.locationManager.desiredAccuracy = kCLLocationAccuracyHundredMeters
+        self.authorizationStatus = locationManager.authorizationStatus
     }
     
     func requestLocation() {

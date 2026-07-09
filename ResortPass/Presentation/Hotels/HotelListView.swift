@@ -5,21 +5,19 @@
 
 import SwiftUI
 
-struct HotelListView: View {
-    @StateObject private var viewModel: HotelListViewModel
+extension HotelListView where ViewModel == HotelListViewModel {
+    @MainActor
+    init(latitude: Double, longitude: Double, locationName: String) {
+        self.init(viewModel: HotelListViewModel(latitude: latitude, longitude: longitude, locationName: locationName))
+    }
+}
+
+struct HotelListView<ViewModel: HotelListViewModelProtocol>: View {
+    @StateObject private var viewModel: ViewModel
     
-    init(
-        latitude: Double,
-        longitude: Double,
-        locationName: String,
-        networkClient: any NetworkClientProtocol = NetworkClient()
-    ) {
-        _viewModel = StateObject(wrappedValue: HotelListViewModel(
-            latitude: latitude,
-            longitude: longitude,
-            locationName: locationName,
-            networkClient: networkClient
-        ))
+    @MainActor
+    init(viewModel: ViewModel) {
+        _viewModel = StateObject(wrappedValue: viewModel)
     }
     
     var body: some View {
@@ -326,5 +324,3 @@ struct HotelListView: View {
         .padding()
     }
 }
-
-

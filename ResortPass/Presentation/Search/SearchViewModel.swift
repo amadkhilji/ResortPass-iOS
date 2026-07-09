@@ -9,7 +9,23 @@ import CoreLocation
 import MapKit
 
 @MainActor
-final class SearchViewModel: ObservableObject {
+protocol SearchViewModelProtocol: ObservableObject {
+    var searchQuery: String { get set }
+    var popularPlaces: [Place] { get set }
+    var nearbyPlaces: [Place] { get set }
+    var searchResults: [Place] { get set }
+    var isLoading: Bool { get set }
+    var errorMessage: String? { get set }
+    var places: [Place] { get }
+    
+    func loadNearbyLocations(latitude: Double, longitude: Double) async
+    func fetchPlaces(query: String, reset: Bool) async
+    func loadMoreIfNeeded(for place: Place)
+    func retrySearch()
+}
+
+@MainActor
+final class SearchViewModel: SearchViewModelProtocol {
     @Published var searchQuery: String = ""
     
     @Published var popularPlaces: [Place] = []
@@ -113,7 +129,6 @@ final class SearchViewModel: ObservableObject {
         }
         
         do {
-            let limit = 10
             let urlString = "\(APIConstants.Search.autocomplete)?terms=\(resolvedCity.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? resolvedCity)&limit=\(limit)&offset=0"
             
             guard let url = URL(string: urlString) else {
@@ -197,11 +212,7 @@ final class SearchViewModel: ObservableObject {
                 return
             }
             
-            if fetchedPlaces.count < limit {
-                hasMorePages = false
-            } else {
-                hasMorePages = true
-            }
+            hasMorePages = fetchedPlaces.count >= limit
             
             var uniqueFetchedPlaces: [Place] = []
             var fetchedIds = Set<Int>()

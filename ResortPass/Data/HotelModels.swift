@@ -7,7 +7,7 @@ import Foundation
 
 // MARK: - Request Models
 
-struct LocationQuery: Codable, Sendable {
+struct LocationQuery: Codable {
     let latitude: Double
     let longitude: Double
     
@@ -17,7 +17,7 @@ struct LocationQuery: Codable, Sendable {
     }
 }
 
-struct HotelRequest: Codable, Sendable {
+struct HotelRequest: Codable {
     let location: LocationQuery
     let limit: Int
     let offset: Int
@@ -31,7 +31,7 @@ struct HotelRequest: Codable, Sendable {
 
 // MARK: - Response Models
 
-struct HotelResponse: Codable, Sendable {
+struct HotelResponse: Codable {
     let stage: Int?
     let total: Int
     let pages: Int?
@@ -45,7 +45,7 @@ struct HotelResponse: Codable, Sendable {
     
 }
 
-struct Hotel: Identifiable, Codable, Equatable, Sendable {
+struct Hotel: Identifiable, Codable, Equatable {
     let id: Int
     let active: Bool?
     let name: String
@@ -103,17 +103,17 @@ struct Hotel: Identifiable, Codable, Equatable, Sendable {
     }
 }
 
-struct Amenity: Codable, Equatable, Sendable {
+struct Amenity: Codable, Equatable {
     let name: String
     let description: String?
     let iconText: String?
 }
 
-struct HotelImage: Codable, Equatable, Sendable {
+struct HotelImage: Codable, Equatable {
     let picture: Picture?
 }
 
-struct Picture: Codable, Equatable, Sendable {
+struct Picture: Codable, Equatable {
     let url: String
     let results: ResultURL?
     let details: ResultURL?
@@ -123,11 +123,11 @@ struct Picture: Codable, Equatable, Sendable {
     }
 }
 
-struct ResultURL: Codable, Equatable, Sendable {
+struct ResultURL: Codable, Equatable {
     let url: String
 }
 
-struct Product: Codable, Equatable, Sendable {
+struct Product: Codable, Equatable {
     let id: Int
     let name: String
     let price: Double?

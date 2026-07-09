@@ -7,7 +7,21 @@ import Foundation
 import Combine
 
 @MainActor
-final class HotelListViewModel: ObservableObject {
+protocol HotelListViewModelProtocol: ObservableObject {
+    var hotels: [Hotel] { get set }
+    var isLoadingInitial: Bool { get set }
+    var isLoadingMore: Bool { get set }
+    var errorMessage: String? { get set }
+    var locationName: String { get set }
+    var hasMoreHotels: Bool { get }
+    
+    func fetchHotels(reset: Bool) async
+    func loadMoreIfNeeded(for hotel: Hotel)
+    func retryFetch()
+}
+
+@MainActor
+final class HotelListViewModel: HotelListViewModelProtocol {
     @Published var hotels: [Hotel] = []
     @Published var isLoadingInitial: Bool = false
     @Published var isLoadingMore: Bool = false

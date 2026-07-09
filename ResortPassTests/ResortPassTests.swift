@@ -10,6 +10,17 @@ import CoreLocation
 
 // MARK: - Mocks
 
+@MainActor
+final class MockCLLocationManager: CLLocationManagerProtocol {
+    weak var delegate: CLLocationManagerDelegate?
+    var desiredAccuracy: CLLocationAccuracy = 0
+    var authorizationStatus: CLAuthorizationStatus = .notDetermined
+    
+    func requestWhenInUseAuthorization() {}
+    func startUpdatingLocation() {}
+    func stopUpdatingLocation() {}
+}
+
 struct MockNetworkClient: NetworkClientProtocol, Sendable {
     let responseData: Data?
     let shouldFail: Bool
@@ -115,6 +126,49 @@ struct MockNetworkClient: NetworkClientProtocol, Sendable {
         #expect(error == nil)
     }
     
+    @Test func testSearchViewAcceptsInjectedSearchViewModel() async throws {
+        let viewModel = SearchViewModel(networkClient: MockNetworkClient())
+        let mockCLLocation = MockCLLocationManager()
+        let locationManager = LocationManager(locationManager: mockCLLocation)
+        let view = SearchView(viewModel: viewModel, locationManager: locationManager)
+        
+        #expect(type(of: view) == SearchView<SearchViewModel>.self)
+    }
+    
+    @Test func testAutocompleteViewModelSearchFailureSetsError() async throws {
+        let viewModel = SearchViewModel(networkClient: MockNetworkClient(shouldFail: true))
+        viewModel.searchQuery = "Miami"
+        
+        await viewModel.fetchPlaces(query: "Miami", reset: true)
+        
+        #expect(viewModel.searchResults.isEmpty)
+        #expect(viewModel.isLoading == false)
+        #expect(viewModel.errorMessage == "Mock connection error")
+    }
+    
+    @Test func testAutocompleteViewModelSearchDropsDuplicatesAndPlacesWithoutCoordinates() async throws {
+        let validPlace = makePlace(id: 1, name: "Miami Beach, Florida")
+        let duplicatePlace = makePlace(id: 1, name: "Miami Beach Duplicate, Florida")
+        let missingLatitude = makePlace(id: 2, name: "Missing Latitude", latitude: nil)
+        let missingLongitude = makePlace(id: 3, name: "Missing Longitude", longitude: nil)
+        let jsonData = try JSONEncoder().encode([
+            validPlace,
+            duplicatePlace,
+            missingLatitude,
+            missingLongitude
+        ])
+        
+        let viewModel = SearchViewModel(networkClient: MockNetworkClient(responseData: jsonData))
+        viewModel.searchQuery = "Miami"
+        
+        await viewModel.fetchPlaces(query: "Miami", reset: true)
+        
+        #expect(viewModel.searchResults == [validPlace])
+        #expect(viewModel.places == [validPlace])
+        #expect(viewModel.isLoading == false)
+        #expect(viewModel.errorMessage == nil)
+    }
+    
     @Test func testHotelListViewModelFetchSuccess() async throws {
         let sampleProducts = [
             Product(
@@ -182,10 +236,24 @@ struct MockNetworkClient: NetworkClientProtocol, Sendable {
         #expect(isLoading == false)
     }
     
+    @Test func testHotelListViewAcceptsInjectedHotelListViewModel() async throws {
+        let viewModel = HotelListViewModel(
+            latitude: 40.645,
+            longitude: -73.778,
+            locationName: "JFK Airport",
+            networkClient: MockNetworkClient()
+        )
+        let view = HotelListView(viewModel: viewModel)
+        
+        #expect(type(of: view) == HotelListView<HotelListViewModel>.self)
+    }
+    
     // MARK: - Location Manager Tests
     
     @Test func testLocationManagerDefaults() async throws {
-        let locationManager = LocationManager()
+        let mockCLLocation = MockCLLocationManager()
+        mockCLLocation.authorizationStatus = .notDetermined
+        let locationManager = LocationManager(locationManager: mockCLLocation)
         #expect(locationManager.authorizationStatus == .notDetermined)
         #expect(locationManager.userLocation == nil)
     }
@@ -268,6 +336,32 @@ struct MockNetworkClient: NetworkClientProtocol, Sendable {
         let httpResponse3 = retrieved3?.response as? HTTPURLResponse
         #expect(httpResponse3?.value(forHTTPHeaderField: "Cache-Control") == nil)
         #expect(httpResponse3?.value(forHTTPHeaderField: "ETag") == "\"w-12345\"")
+    }
+    
+    private func makePlace(
+        id: Int,
+        name: String,
+        latitude: Double? = 25.7906,
+        longitude: Double? = -80.1300
+    ) -> Place {
+        Place(
+            id: id,
+            name: name,
+            type: "city",
+            detailedType: "city",
+            url: nil,
+            parentId: nil,
+            parentType: nil,
+            stateCode: "FL",
+            countryCode: "US",
+            cityName: "Miami Beach",
+            latitude: latitude,
+            longitude: longitude,
+            distanceSearchOnly: nil,
+            indexName: nil,
+            objectID: nil,
+            queryID: nil
+        )
     }
 }
 

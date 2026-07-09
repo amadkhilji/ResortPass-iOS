@@ -6,14 +6,28 @@
 import SwiftUI
 import CoreLocation
 
-struct SearchView: View {
-    @StateObject private var viewModel: SearchViewModel
-    @ObservedObject private var locationManager = LocationManager()
-    private let networkClient: any NetworkClientProtocol
+extension SearchView {
+    @MainActor
+    init(viewModel: ViewModel) {
+        self.init(viewModel: viewModel, locationManager: LocationManager.shared)
+    }
+}
+
+extension SearchView where ViewModel == SearchViewModel {
+    @MainActor
+    init() {
+        self.init(viewModel: SearchViewModel())
+    }
+}
+
+struct SearchView<ViewModel: SearchViewModelProtocol>: View {
+    @StateObject private var viewModel: ViewModel
+    @ObservedObject private var locationManager: LocationManager
     
-    init(networkClient: any NetworkClientProtocol = NetworkClient()) {
-        self.networkClient = networkClient
-        self._viewModel = StateObject(wrappedValue: SearchViewModel(networkClient: networkClient))
+    @MainActor
+    init(viewModel: ViewModel, locationManager: LocationManager) {
+        self._viewModel = StateObject(wrappedValue: viewModel)
+        self.locationManager = locationManager
     }
     
     var body: some View {
@@ -155,8 +169,7 @@ struct SearchView: View {
         NavigationLink(destination: HotelListView(
             latitude: place.latitude ?? 0.0,
             longitude: place.longitude ?? 0.0,
-            locationName: place.name,
-            networkClient: networkClient
+            locationName: place.name
         )) {
             HStack(spacing: 16) {
                 ZStack {
