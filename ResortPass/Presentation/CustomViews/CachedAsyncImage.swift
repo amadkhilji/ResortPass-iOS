@@ -17,11 +17,7 @@ struct CachedAsyncImage<Content: View, Placeholder: View>: View {
     @State private var loadTask: Task<Void, Never>?
     @State private var loadedURLString: String?
     
-    init(
-        url: URL?,
-        cacheManager: any ImageCacheManagerProtocol = ImageCacheManager.shared,
-        @ViewBuilder content: @escaping (Image) -> Content,
-        @ViewBuilder placeholder: @escaping () -> Placeholder
+    init(url: URL?, cacheManager: any ImageCacheManagerProtocol = ImageCacheManager.shared, @ViewBuilder content: @escaping (Image) -> Content, @ViewBuilder placeholder: @escaping () -> Placeholder
     ) {
         self.url = url
         self.cacheManager = cacheManager

@@ -43,6 +43,7 @@ struct MockNetworkClient: NetworkClientProtocol, Sendable {
 
 // MARK: - Tests Suite
 
+@Suite(.serialized)
 @MainActor struct ResortPassTests {
     
     // MARK: - Image Cache Tests
@@ -282,6 +283,58 @@ struct MockNetworkClient: NetworkClientProtocol, Sendable {
         
         #expect(result.id == 1)
         #expect(result.name == "Test Place")
+    }
+    
+    @Test func testNetworkClientPOSTCaching() async throws {
+        await POSTCache.shared.clear()
+        
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [MockURLProtocol.self]
+        let session = URLSession(configuration: configuration)
+        let client = NetworkClient(session: session)
+        
+        let testData1 = "{\"id\": 1, \"name\": \"Initial Post\"}".data(using: .utf8)!
+        var hitCount = 0
+        MockURLProtocol.requestHandler = { request in
+            hitCount += 1
+            let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            return (response, testData1)
+        }
+        
+        struct DummyModel: Codable {
+            let id: Int
+            let name: String
+        }
+        
+        var request = URLRequest(url: URL(string: "https://example.com/api/post-test")!)
+        request.httpMethod = "POST"
+        request.httpBody = "{\"param\": \"value\"}".data(using: .utf8)!
+        
+        let result1: DummyModel = try await client.perform(request)
+        #expect(result1.id == 1)
+        #expect(result1.name == "Initial Post")
+        #expect(hitCount == 1)
+        
+        let testData2 = "{\"id\": 2, \"name\": \"Updated Post\"}".data(using: .utf8)!
+        MockURLProtocol.requestHandler = { request in
+            hitCount += 1
+            let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            return (response, testData2)
+        }
+        
+        let result2: DummyModel = try await client.perform(request)
+        #expect(result2.id == 1)
+        #expect(result2.name == "Initial Post")
+        #expect(hitCount == 1)
+        
+        var request2 = URLRequest(url: URL(string: "https://example.com/api/post-test")!)
+        request2.httpMethod = "POST"
+        request2.httpBody = "{\"param\": \"different-value\"}".data(using: .utf8)!
+        
+        let result3: DummyModel = try await client.perform(request2)
+        #expect(result3.id == 2)
+        #expect(result3.name == "Updated Post")
+        #expect(hitCount == 2)
     }
     
     @Test func testResortPassURLCacheHeaderInjection() async throws {

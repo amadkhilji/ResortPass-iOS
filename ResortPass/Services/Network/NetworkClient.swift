@@ -4,6 +4,45 @@
 //
 
 import Foundation
+import CryptoKit
+
+extension URLRequest {
+    nonisolated var cacheKey: String? {
+        guard let urlString = url?.absoluteString else { return nil }
+        guard let httpBody = httpBody else { return urlString }
+        
+        let hash = SHA256.hash(data: httpBody)
+        let bodyHashString = hash.compactMap { String(format: "%02x", $0) }.joined()
+        
+        return "\(urlString)|\(bodyHashString)"
+    }
+}
+
+actor POSTCache {
+    static let shared = POSTCache()
+    private init() {}
+    
+    private var storage = [String: (data: Data, response: HTTPURLResponse, timestamp: Date)]()
+    private let cacheDuration: TimeInterval = 300 // 5 minutes
+    
+    func cachedResponse(for request: URLRequest) -> (Data, HTTPURLResponse)? {
+        guard let key = request.cacheKey, let cached = storage[key] else { return nil }
+        if Date().timeIntervalSince(cached.timestamp) > cacheDuration {
+            storage.removeValue(forKey: key)
+            return nil
+        }
+        return (cached.data, cached.response)
+    }
+    
+    func storeResponse(data: Data, response: HTTPURLResponse, for request: URLRequest) {
+        guard let key = request.cacheKey else { return }
+        storage[key] = (data, response, Date())
+    }
+    
+    func clear() {
+        storage.removeAll()
+    }
+}
 
 protocol NetworkClientProtocol: Sendable {
     func perform<T: Decodable>(_ request: URLRequest) async throws -> T
@@ -99,6 +138,14 @@ final class NetworkClient: NetworkClientProtocol {
     }
     
     func perform<T: Decodable>(_ request: URLRequest) async throws -> T {
+        if request.httpMethod == "POST", let cached = await POSTCache.shared.cachedResponse(for: request) {
+            do {
+                return try decoder.decode(T.self, from: cached.0)
+            } catch {
+                // Fallback to network request if decoding cached data fails (e.g., if model changed)
+            }
+        }
+        
         let (data, response) = try await session.data(for: request)
         
         guard let httpResponse = response as? HTTPURLResponse else {
@@ -107,6 +154,10 @@ final class NetworkClient: NetworkClientProtocol {
         
         guard (200...299).contains(httpResponse.statusCode) else {
             throw NetworkError.httpError(statusCode: httpResponse.statusCode, data: data)
+        }
+        
+        if request.httpMethod == "POST" {
+            await POSTCache.shared.storeResponse(data: data, response: httpResponse, for: request)
         }
         
         do {

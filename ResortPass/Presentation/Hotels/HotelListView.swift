@@ -132,7 +132,7 @@ struct HotelListView<ViewModel: HotelListViewModelProtocol>: View {
                     // Amenities scroll view
                     if let amenities = hotel.amenities, !amenities.isEmpty {
                         ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 8) {
+                            LazyHStack(spacing: 8) {
                                 ForEach(amenities, id: \.name) { amenity in
                                     amenityChip(for: amenity)
                                 }
